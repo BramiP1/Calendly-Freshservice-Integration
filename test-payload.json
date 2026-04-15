@@ -1,0 +1,29 @@
+{
+  "event": "invitee.created",
+  "payload": {
+    "invitee": {
+      "name": "John Smith",
+      "email": "john.smith@example.com",
+      "text_reminder_number": "+1 480-947-4558",
+      "timezone": "America/New_York",
+      "cancel_url": "https://calendly.com/cancellations/abc123",
+      "reschedule_url": "https://calendly.com/reschedulings/abc123",
+      "questions_and_answers": [
+        { "question": "Business Name", "answer": "Lucid Private Offices Kierland-North Scottsdale" },
+        { "question": "Job Title", "answer": "Community Manager and Team" },
+        { "question": "Mobile Phone Number", "answer": "+1 480-947-4558" },
+        { "question": "Product to Train", "answer": "iPostal1" },
+        { "question": "Comments (Visible to all attendees)", "answer": "New Employees" }
+      ]
+    },
+    "event": {
+      "name": "30 Minute Meeting",
+      "start_time": "2026-04-20T14:00:00Z",
+      "end_time": "2026-04-20T14:30:00Z",
+      "uri": "https://api.calendly.com/scheduled_events/TEST123456",
+      "location": {
+        "join_url": "https://zoom.us/j/123456789"
+      }
+    }
+  }
+}
