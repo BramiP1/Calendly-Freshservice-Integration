@@ -22,6 +22,7 @@ async function handleCalendlyEvent(eventType, payload) {
  */
 const ALLOWED_EVENT_NAMES = [
   'iPostal1 Onboarding Training Session.',
+  'iPostal1 Launch Call.',
 ];
 
 async function handleInviteeCreated(payload) {
