@@ -26,31 +26,31 @@ const ALLOWED_EVENT_NAMES = [
 ];
 
 async function handleInviteeCreated(payload) {
-  const { invitee, event } = payload.payload || {};
+  const inviteeData    = payload.payload || {};
+  const scheduledEvent = inviteeData.scheduled_event || {};
 
-  if (!invitee || !event) {
-    logger.error('invitee.created payload missing invitee or event data');
-    logger.error('Payload keys received: ' + JSON.stringify(Object.keys(payload.payload || {})));
-    logger.error('Full payload: ' + JSON.stringify(payload.payload, null, 2));
+  if (!inviteeData.email || !scheduledEvent.uri) {
+    logger.error('invitee.created payload missing required data');
+    logger.error('Payload keys received: ' + JSON.stringify(Object.keys(inviteeData)));
     throw new Error('Malformed invitee.created payload');
   }
 
-  const eventName = event.name || '';
+  const eventName = scheduledEvent.name || '';
   if (!ALLOWED_EVENT_NAMES.includes(eventName)) {
     logger.info(`Skipping "${eventName}" — not in allowed event types`);
     return;
   }
 
-  const inviteeName   = invitee.name || 'Unknown';
-  const inviteeEmail  = invitee.email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
-  const inviteePhone  = invitee.text_reminder_number || null;
-  const inviteeTimezone = invitee.timezone || null;
-  const startTime     = event.start_time ? new Date(event.start_time).toLocaleString() : 'Unknown';
-  const endTime       = event.end_time   ? new Date(event.end_time).toLocaleString()   : 'Unknown';
-  const meetingLink   = event.location?.join_url || event.location?.location || 'N/A';
-  const cancelUrl     = invitee.cancel_url || 'N/A';
-  const rescheduleUrl = invitee.reschedule_url || 'N/A';
-  const questionsAndAnswers = invitee.questions_and_answers || [];
+  const inviteeName     = inviteeData.name || 'Unknown';
+  const inviteeEmail    = inviteeData.email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
+  const inviteePhone    = inviteeData.text_reminder_number || null;
+  const inviteeTimezone = inviteeData.timezone || null;
+  const startTime       = scheduledEvent.start_time ? new Date(scheduledEvent.start_time).toLocaleString() : 'Unknown';
+  const endTime         = scheduledEvent.end_time   ? new Date(scheduledEvent.end_time).toLocaleString()   : 'Unknown';
+  const meetingLink     = scheduledEvent.location?.join_url || scheduledEvent.location?.location || 'N/A';
+  const cancelUrl       = inviteeData.cancel_url || 'N/A';
+  const rescheduleUrl   = inviteeData.reschedule_url || 'N/A';
+  const questionsAndAnswers = inviteeData.questions_and_answers || [];
 
   const ticketSubject = `[Calendly] ${eventName} with ${inviteeName}`;
 
@@ -83,9 +83,7 @@ async function handleInviteeCreated(payload) {
 
   const ticketBody = noteLines.join('<br>');
 
-  // Extract the unique event UUID from the Calendly event URI
-  // e.g. https://api.calendly.com/scheduled_events/ABCDEF123456 → ABCDEF123456
-  const eventUuid = event.uri ? `calendly-evt-${event.uri.split('/').pop()}` : null;
+  const eventUuid = scheduledEvent.uri ? `calendly-evt-${scheduledEvent.uri.split('/').pop()}` : null;
   const tags = ['calendly', 'meeting-scheduled'];
   if (eventUuid) tags.push(eventUuid);
 
@@ -94,7 +92,6 @@ async function handleInviteeCreated(payload) {
   const serviceItemId = parseInt(process.env.FRESHSERVICE_SERVICE_ITEM_ID, 10);
 
   if (serviceItemId) {
-    // --- Service Catalog path ---
     logger.info(`Creating FreshService service request under service item #${serviceItemId}`);
     const sr = await freshservice.createServiceRequest({
       serviceItemId,
@@ -104,7 +101,6 @@ async function handleInviteeCreated(payload) {
     });
     logger.info(`FreshService service request created: #${sr.id}`);
   } else {
-    // --- Fallback: plain ticket (no service item configured) ---
     logger.warn('FRESHSERVICE_SERVICE_ITEM_ID not set — falling back to plain ticket creation');
     const ticket = await freshservice.createTicket({
       subject: ticketSubject,
@@ -123,27 +119,27 @@ async function handleInviteeCreated(payload) {
  * or create a new cancellation ticket if no prior ticket is found.
  */
 async function handleInviteeCanceled(payload) {
-  const { invitee, event } = payload.payload || {};
+  const inviteeData    = payload.payload || {};
+  const scheduledEvent = inviteeData.scheduled_event || {};
 
-  if (!invitee || !event) {
-    logger.error('invitee.canceled payload missing invitee or event data');
+  if (!inviteeData.email) {
+    logger.error('invitee.canceled payload missing email');
     throw new Error('Malformed invitee.canceled payload');
   }
 
-  const inviteeName   = invitee.name || 'Unknown';
-  const inviteeEmail  = invitee.email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
-  const eventName     = event.name || 'Meeting';
-  const cancelReason  = invitee.cancellation?.reason || 'No reason provided';
-  const canceledBy    = invitee.cancellation?.canceler_name || 'Unknown';
+  const inviteeName  = inviteeData.name || 'Unknown';
+  const inviteeEmail = inviteeData.email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
+  const eventName    = scheduledEvent.name || 'Meeting';
+  const cancelReason = inviteeData.cancellation?.reason || 'No reason provided';
+  const canceledBy   = inviteeData.cancellation?.canceler_name || 'Unknown';
 
-  // Use the Calendly event UUID tag for an exact 1:1 match
-  const eventUuid = event.uri ? `calendly-evt-${event.uri.split('/').pop()}` : null;
+  const eventUuid = scheduledEvent.uri ? `calendly-evt-${scheduledEvent.uri.split('/').pop()}` : null;
 
   logger.info(`Meeting canceled — searching for ticket with tag "${eventUuid || 'N/A'}"`);
 
   const existingTickets = eventUuid
     ? await freshservice.searchTicketsByTag(eventUuid)
-    : await freshservice.searchTickets(inviteeEmail, eventName); // fallback if URI missing
+    : await freshservice.searchTickets(inviteeEmail, eventName);
 
   const cancellationNote = [
     `<b>This meeting has been canceled.</b>`,
@@ -156,7 +152,7 @@ async function handleInviteeCanceled(payload) {
     const ticket = existingTickets[0];
     logger.info(`Found existing ticket #${ticket.id} — adding cancellation note`);
     await freshservice.addNote(ticket.id, cancellationNote);
-    await freshservice.updateTicketStatus(ticket.id, 5); // 5 = Closed in FreshService
+    await freshservice.updateTicketStatus(ticket.id, 5);
     logger.info(`Ticket #${ticket.id} updated with cancellation and closed`);
   } else {
     logger.warn(`No existing ticket found for ${inviteeEmail} — creating cancellation ticket`);
@@ -165,7 +161,7 @@ async function handleInviteeCanceled(payload) {
       description: cancellationNote,
       email: inviteeEmail,
       priority: parseInt(process.env.FRESHSERVICE_DEFAULT_PRIORITY, 10) || 2,
-      status: 5, // Closed
+      status: 5,
       tags: ['calendly', 'meeting-canceled'],
     });
     logger.info(`Cancellation ticket created: #${ticket.id}`);
