@@ -30,6 +30,8 @@ async function handleInviteeCreated(payload) {
 
   if (!invitee || !event) {
     logger.error('invitee.created payload missing invitee or event data');
+    logger.error('Payload keys received: ' + JSON.stringify(Object.keys(payload.payload || {})));
+    logger.error('Full payload: ' + JSON.stringify(payload.payload, null, 2));
     throw new Error('Malformed invitee.created payload');
   }
 
