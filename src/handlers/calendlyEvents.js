@@ -42,7 +42,8 @@ async function handleInviteeCreated(payload) {
   }
 
   const inviteeName     = inviteeData.name || 'Unknown';
-  const inviteeEmail    = inviteeData.email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
+  const inviteeEmail    = inviteeData.email || 'Unknown';
+  const hostEmail       = scheduledEvent.event_memberships?.[0]?.user_email || process.env.FRESHSERVICE_DEFAULT_EMAIL;
   const inviteePhone    = inviteeData.text_reminder_number || null;
   const inviteeTimezone = inviteeData.timezone || null;
   const startTime       = scheduledEvent.start_time ? new Date(scheduledEvent.start_time).toLocaleString() : 'Unknown';
@@ -95,7 +96,7 @@ async function handleInviteeCreated(payload) {
     logger.info(`Creating FreshService service request under service item #${serviceItemId}`);
     const sr = await freshservice.createServiceRequest({
       serviceItemId,
-      email: inviteeEmail,
+      email: hostEmail,
       noteBody: ticketBody,
       tags,
     });
@@ -105,7 +106,7 @@ async function handleInviteeCreated(payload) {
     const ticket = await freshservice.createTicket({
       subject: ticketSubject,
       description: ticketBody,
-      email: inviteeEmail,
+      email: hostEmail,
       priority: parseInt(process.env.FRESHSERVICE_DEFAULT_PRIORITY, 10) || 2,
       status: 2,
       tags,
