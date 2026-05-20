@@ -153,19 +153,9 @@ async function handleInviteeCanceled(payload) {
     const ticket = existingTickets[0];
     logger.info(`Found existing ticket #${ticket.id} — adding cancellation note`);
     await freshservice.addNote(ticket.id, cancellationNote);
-    await freshservice.updateTicketStatus(ticket.id, 5);
-    logger.info(`Ticket #${ticket.id} updated with cancellation and closed`);
+    logger.info(`Ticket #${ticket.id} updated with cancellation note`);
   } else {
-    logger.warn(`No existing ticket found for ${inviteeEmail} — creating cancellation ticket`);
-    const ticket = await freshservice.createTicket({
-      subject: `[Calendly] CANCELED: ${eventName} with ${inviteeName}`,
-      description: cancellationNote,
-      email: inviteeEmail,
-      priority: parseInt(process.env.FRESHSERVICE_DEFAULT_PRIORITY, 10) || 2,
-      status: 5,
-      tags: ['calendly', 'meeting-canceled'],
-    });
-    logger.info(`Cancellation ticket created: #${ticket.id}`);
+    logger.info(`No existing ticket found for ${inviteeEmail} — skipping cancellation`);
   }
 }
 
